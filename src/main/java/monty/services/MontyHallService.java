@@ -1,144 +1,111 @@
 package monty.services;
 
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
-import java.util.TreeMap;
-
-import org.springframework.stereotype.Service;
+import java.util.random.RandomGenerator;
 
 import monty.entities.Door;
 import monty.entities.Door.Prize;
 import monty.entities.Game;
-import monty.entities.Game.State;
+import monty.store.Store;
 
-@Service
 public class MontyHallService {
 	public static final int MIN_DOORS = 3;
+	public static final int MAX_DOORS = 100;
 	public static final int DEFAULT_DOORS = 3;
-	
-	private Map<String, Game> gamesById = Collections.synchronizedMap(new TreeMap<>());
-	
-	private Map<String, Integer> stats = Collections.synchronizedMap(new TreeMap<>());
-	
-	public Game newGame() {
-		return newGame(DEFAULT_DOORS);
-	}
-	
-	public Game newGame(int numberOfDoors) {
-		if (numberOfDoors < MIN_DOORS) {
-			throw new IllegalArgumentException("numberOfDoors must be at least " + MIN_DOORS + ", is: " + numberOfDoors);
-		}
-		
-		Game game = new Game();
-		game.setState(State.SELECT_A_DOOR);
-		
-		int winningDoorNumber = (int)(Math.random() * numberOfDoors) + 1;
-		
-		for (int doorNumber = 1; doorNumber <= numberOfDoors; doorNumber++) {
-			Prize prize = winningDoorNumber == doorNumber ? Prize.WIN : Prize.LOSE;
-			
-			Door door = new Door();
-			
-			door.setState(Door.State.UNSELECTED);
-			door.setGame(game);
-			door.setDoorNumber(doorNumber);
-			door.setPrize(prize);
-			
-			game.addDoor(door);
-		}
-		
-		gamesById.put(game.getId(), game);
-		return game;
-	}
-	
-	public Game removeGame(String gameId) {
-		return gamesById.remove(gameId);
-	}
-	
-	
-	public void selectDoor(Game game, int doorNumber) {
-		assertGameState(game, Game.State.SELECT_A_DOOR);
-		
-		Door door = getDoor(game, doorNumber);
-		door.setState(Door.State.SELECTED);
-		
-		// choose a random unselected losing door
-		Door doorToOpen = game.getRandomUnselectedLosingDoor();
-		
-		if (doorToOpen == null) {
-			door.setState(Door.State.UNSELECTED);
-			throw new IllegalStateException("Unable to open a random unselected losing door");
-		}
-		
-		// select the selected door, open another door, and move the game state forward 
-		doorToOpen.setState(Door.State.OPENED);
-		game.setState(Game.State.SECOND_CHANCE);
+
+	private final Store store;
+	private final RandomGenerator random;
+
+	public MontyHallService(Store store) {
+		this(store, RandomGenerator.getDefault());
 	}
 
-	public void chooseDoor(Game game, int doorNumber) {
-		assertGameState(game, Game.State.SECOND_CHANCE);
-		
+	public MontyHallService(Store store, RandomGenerator random) {
+		this.store = store;
+		this.random = random;
+	}
+
+	public Game newGame(Integer numberOfDoors) {
+		int doorCount = numberOfDoors != null ? numberOfDoors : DEFAULT_DOORS;
+		if (doorCount < MIN_DOORS || doorCount > MAX_DOORS) {
+			throw new IllegalArgumentException(
+					"numberOfDoors must be between " + MIN_DOORS + " and " + MAX_DOORS + ", is: " + doorCount);
+		}
+
+		Game game = new Game();
+		int winningDoorNumber = random.nextInt(doorCount) + 1;
+		for (int doorNumber = 1; doorNumber <= doorCount; doorNumber++) {
+			game.getDoors().add(new Door(doorNumber, winningDoorNumber == doorNumber ? Prize.WIN : Prize.LOSE));
+		}
+
+		store.createGame(game);
+		return game;
+	}
+
+	public Game getGame(String gameId) {
+		return store.getGame(gameId).orElseThrow(() -> new NotFoundException("Game not found: " + gameId));
+	}
+
+	public boolean removeGame(String gameId) {
+		return store.deleteGame(gameId);
+	}
+
+	public void selectDoor(String gameId, int doorNumber) {
+		Game game = getGame(gameId);
+		assertGameState(game, Game.State.SELECT_A_DOOR);
+
 		Door door = getDoor(game, doorNumber);
-		
+		door.setState(Door.State.SELECTED);
+
+		// open a random losing door that the player didn't pick
+		Door doorToOpen = game.getRandomUnselectedLosingDoor(random);
+		if (doorToOpen == null) {
+			throw new IllegalStateException("Unable to open a random unselected losing door");
+		}
+		doorToOpen.setState(Door.State.OPENED);
+		game.setState(Game.State.SECOND_CHANCE);
+
+		store.saveGame(game);
+	}
+
+	public void chooseDoor(String gameId, int doorNumber) {
+		Game game = getGame(gameId);
+		assertGameState(game, Game.State.SECOND_CHANCE);
+
+		Door door = getDoor(game, doorNumber);
+
 		// prevent choosing an already opened door (that's cheating!)
 		if (door.getState() == Door.State.OPENED) {
 			throw new IllegalArgumentException("Door already opened: " + doorNumber);
 		}
 		boolean switched = door.getState() != Door.State.SELECTED;
 
-		// select the open the door and mark the game as finished 
 		door.setState(Door.State.OPENED);
 		game.setState(Game.State.FINISHED);
 		game.setPrize(door.getPrize());
-		game.setSwitched(switched);	
-		
-		updateStats(switched, door.getPrize());
-	}
-	
-	private void updateStats(boolean switched, Door.Prize prize) {
-		String statName = (switched ? "switched" : "stayed") + '-' + prize.name().toLowerCase();
-		Integer count = stats.get(statName);
-		stats.put(statName, count != null ? count + 1 : 1);
+		game.setSwitched(switched);
 
-		statName = "totals" + '-' + prize.name().toLowerCase();
-		count = stats.get(statName);
-		stats.put(statName, count != null ? count + 1 : 1);
-	}
-	
-	public Map<String, Integer> getStats() {
-		return Collections.unmodifiableMap(stats);
-	}
-	
-	public Collection<Door> getDoors(Game game) {
-		return game.getDoors(Game.Order.NUMBER);
-	}
-	
-	public Game getGame(String gameId) {
-		Game game = gamesById.get(gameId);
-		
-		if (game == null) {
-			throw new IllegalArgumentException("Game not found: " + gameId);
-		}
-		
-		return game;
+		store.saveGame(game);
+
+		String prize = door.getPrize().name().toLowerCase();
+		store.incrementStats((switched ? "switched" : "stayed") + "-" + prize, "totals-" + prize);
 	}
 
-	private Game assertGameState(Game game, Game.State state) {
+	public Map<String, Long> getStats() {
+		return store.getStats();
+	}
+
+	private static void assertGameState(Game game, Game.State state) {
 		if (game.getState() != state) {
 			throw new IllegalStateException("Game not in the " + state + " state: " + game.getState());
 		}
-		
-		return game;
 	}
-	
-	public Door getDoor(Game game, int doorNumber) {
+
+	private static Door getDoor(Game game, int doorNumber) {
 		Door door = game.getDoorByNumber(doorNumber);
-		
 		if (door == null) {
-			throw new IllegalArgumentException("Door not found: " + doorNumber);
+			throw new NotFoundException("Door not found: " + doorNumber);
 		}
-		
 		return door;
 	}
 }

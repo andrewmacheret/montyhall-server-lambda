@@ -1,0 +1,66 @@
+name: Test and deploy
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FUNCTION_NAME: MontyHall
+  API_URL: https://montyhall.andrewmacheret.com
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - run: ./mvnw -B package
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - run: ./mvnw -B package -DskipTests
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      # API Gateway calls the "live" alias, so publish a version and move the alias to it.
+      # SnapStart prepares each new version before it can be used, which takes a minute or two.
+      - name: Deploy new version
+        run: |
+          version=$(aws lambda update-function-code --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://target/montyhall-server-lambda.jar --publish \
+            --query Version --output text)
+          echo "Published version $version"
+          aws lambda wait published-version-active --function-name "$FUNCTION_NAME" --qualifier "$version"
+          aws lambda update-alias --function-name "$FUNCTION_NAME" --name live --function-version "$version" \
+            --query FunctionVersion --output text
+      - name: Smoke test
+        run: |
+          curl -sSf "$API_URL/" | jq -e '.version'
+          id=$(curl -sSf -X POST -H 'Content-Type: application/json' -d '{}' "$API_URL/games" | jq -er '.id')
+          curl -sSf "$API_URL/games/$id" | jq -e '.state == "SELECT_A_DOOR"'
+          curl -sSf -X DELETE "$API_URL/games/$id" | jq -e '.deleted'
+          curl -sSf "$API_URL/stats"
+          curl -sSf -o /dev/null -X OPTIONS "$API_URL/games" \
+            -H 'Origin: https://andrewmacheret.com' -H 'Access-Control-Request-Method: POST'

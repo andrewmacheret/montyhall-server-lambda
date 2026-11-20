@@ -1,6 +1,6 @@
 package monty.entities;
 
-public class Door extends Entity {
+public class Door {
 	public enum State {
 		UNSELECTED, SELECTED, OPENED
 	};
@@ -8,7 +8,6 @@ public class Door extends Entity {
 		LOSE, WIN
 	};
 
-	private Game game;
 	private int doorNumber;
 	private State state;
 	private Prize prize;
@@ -16,10 +15,24 @@ public class Door extends Entity {
 	public Door() {
 	}
 
+	public Door(int doorNumber, Prize prize) {
+		this.doorNumber = doorNumber;
+		this.state = State.UNSELECTED;
+		this.prize = prize;
+	}
+
+	public int getDoorNumber() {
+		return doorNumber;
+	}
+
+	public void setDoorNumber(int doorNumber) {
+		this.doorNumber = doorNumber;
+	}
+
 	public State getState() {
 		return state;
 	}
-	
+
 	public void setState(State state) {
 		this.state = state;
 	}
@@ -28,24 +41,7 @@ public class Door extends Entity {
 		return prize;
 	}
 
-	public Game getGame() {
-		return game;
-	}
-	
-	public int getDoorNumber() {
-		return doorNumber;
-	}
-
-	public void setGame(Game game) {
-		this.game = game;
-	}
-
-	public void setDoorNumber(int doorNumber) {
-		this.doorNumber = doorNumber;
-	}
-
 	public void setPrize(Prize prize) {
 		this.prize = prize;
 	}
-
 }

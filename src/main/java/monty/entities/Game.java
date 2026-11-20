@@ -1,69 +1,55 @@
 package monty.entities;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.UUID;
+import java.util.random.RandomGenerator;
 
-public class Game extends Entity {
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+public class Game {
 	public enum State {
 		SELECT_A_DOOR, SECOND_CHANCE, FINISHED
 	};
-	public enum Order {
-		ID, NUMBER
-	};
 
-	private Map<String, Door> doorsById = new TreeMap<>();
-	private Map<Integer, Door> doorsByNumber = new TreeMap<>();
-
-	private State state;
+	private String id = UUID.randomUUID().toString();
+	private State state = State.SELECT_A_DOOR;
 	private boolean switched;
 	private Door.Prize prize;
-	
+	// bumped on every save so two requests can't change the same game at once
+	private long version;
+	private List<Door> doors = new ArrayList<>();
+
 	public Game() {
 	}
-	
-	public void addDoor(Door door) {
-		doorsById.put(door.getId(), door);
-		doorsByNumber.put(door.getDoorNumber(), door);
-	}
 
+	@JsonIgnore
 	public Door getDoorByNumber(int doorNumber) {
-		return doorsByNumber.get(doorNumber);
-	}
-
-	public Door getDoorById(String doorId) {
-		return doorsById.get(doorId);
-	}
-
-	public List<Door> getDoors(Order order) {
-		Collection<Door> doors;
-		switch (order) {
-		case ID:
-			doors = doorsById.values();
-			break;
-		case NUMBER:
-			doors = doorsByNumber.values();
-			break;
-		default:
-			throw new IllegalArgumentException("Unsupported Order: " + order);
-		}
-
-		return new ArrayList<>(doors);
-	}
-
-	public Door getRandomUnselectedLosingDoor() {
-		List<Door> doors = new ArrayList<Door>();
-		
-		for (Door door : doorsByNumber.values()) {
-			if (door.getState() == Door.State.UNSELECTED && door.getPrize() != Door.Prize.WIN) {
-				doors.add(door);
+		for (Door door : doors) {
+			if (door.getDoorNumber() == doorNumber) {
+				return door;
 			}
 		}
-		
-		int doorIndexToOpen = (int)(Math.random() * doors.size());
-		return doors.get(doorIndexToOpen);
+		return null;
+	}
+
+	@JsonIgnore
+	public Door getRandomUnselectedLosingDoor(RandomGenerator random) {
+		List<Door> candidates = new ArrayList<>();
+		for (Door door : doors) {
+			if (door.getState() == Door.State.UNSELECTED && door.getPrize() != Door.Prize.WIN) {
+				candidates.add(door);
+			}
+		}
+		return candidates.isEmpty() ? null : candidates.get(random.nextInt(candidates.size()));
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
 	}
 
 	public State getState() {
@@ -88,5 +74,21 @@ public class Game extends Entity {
 
 	public void setPrize(Door.Prize prize) {
 		this.prize = prize;
+	}
+
+	public long getVersion() {
+		return version;
+	}
+
+	public void setVersion(long version) {
+		this.version = version;
+	}
+
+	public List<Door> getDoors() {
+		return doors;
+	}
+
+	public void setDoors(List<Door> doors) {
+		this.doors = doors;
 	}
 }
