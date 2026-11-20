@@ -33,7 +33,12 @@ Needs a JDK 21 or newer. Maven is downloaded by the wrapper.
 
 # run the API on http://localhost:8080 with an in-memory store
 ./mvnw -q test-compile exec:java -Dexec.mainClass=monty.LocalServer -Dexec.classpathScope=test
+
+# play 1000 games (half stay, half switch) and print the win rates
+scripts/play.py --api http://localhost:8080
 ```
+
+`scripts/play.py` needs only Python 3. Without `--api` it plays against the live API, and those games count in the public stats. Run `scripts/play.py --help` for the other options (number of games, strategy, door count).
 
 ## How it runs
 
