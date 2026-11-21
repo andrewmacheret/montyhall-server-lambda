@@ -1,5 +1,6 @@
 package monty.services;
 
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -22,7 +23,9 @@ public class MontyHallService {
 	private final RandomGenerator random;
 
 	public MontyHallService(Store store) {
-		this(store, RandomGenerator.getDefault());
+		// SnapStart copies memory to every new Lambda, so a normal RNG would repeat the same games.
+		// SecureRandom gets fresh randomness after each copy
+		this(store, new SecureRandom());
 	}
 
 	public MontyHallService(Store store, RandomGenerator random) {
