@@ -67,7 +67,7 @@ class HandlerTest {
 		assertFalse(finished.get("switched").asBoolean());
 
 		String prize = finished.get("prize").asText().toLowerCase();
-		assertEquals(json.readTree("{\"stayed-" + prize + "\":1,\"totals-" + prize + "\":1}"), call("GET", "/stats", null, 200));
+		assertEquals(json.readTree("{\"3\":{\"stayed-" + prize + "\":1,\"totals-" + prize + "\":1}}"), call("GET", "/stats", null, 200));
 
 		assertEquals(json.readTree("{\"deleted\":true}"), call("DELETE", "/games/" + id, null, 200));
 		assertEquals(json.readTree("{\"deleted\":false}"), call("DELETE", "/games/" + id, null, 200));
@@ -98,8 +98,45 @@ class HandlerTest {
 	@Test
 	void rejectsBadDoorCounts() throws Exception {
 		call("POST", "/games", "{\"numberOfDoors\": 2}", 400);
-		call("POST", "/games", "{\"numberOfDoors\": 101}", 400);
-		assertEquals(5, call("POST", "/games", "{\"numberOfDoors\": 5}", 200).get("doors").size());
+		call("POST", "/games", "{\"numberOfDoors\": 11}", 400);
+		assertEquals(10, call("POST", "/games", "{\"numberOfDoors\": 10}", 200).get("doors").size());
+	}
+
+	@Test
+	void manyDoorsOpensAllButOne() throws Exception {
+		for (int i = 0; i < 20; i++) {
+			String id = call("POST", "/games", "{\"numberOfDoors\": 10}", 200).get("id").asText();
+			call("PUT", "/games/" + id + "/doors/4", "{\"state\": \"SELECTED\"}", 200);
+
+			JsonNode doors = call("GET", "/games/" + id, null, 200).get("doors");
+			List<Integer> closed = new java.util.ArrayList<>();
+			for (JsonNode door : doors) {
+				if (door.get("state").asText().equals("OPENED")) {
+					assertEquals("LOSE", door.get("prize").asText());
+				} else {
+					closed.add(door.get("number").asInt());
+				}
+			}
+			assertEquals(2, closed.size());
+			assertTrue(closed.contains(4));
+
+			int other = closed.get(0) == 4 ? closed.get(1) : closed.get(0);
+			call("PUT", "/games/" + id + "/doors/" + other, "{\"state\": \"OPENED\"}", 200);
+			assertTrue(call("GET", "/games/" + id, null, 200).get("switched").asBoolean());
+		}
+		JsonNode stats = call("GET", "/stats", null, 200);
+		assertEquals(Set.of("10"), fieldNames(stats));
+		assertEquals(20, stats.get("10").path("totals-win").asInt() + stats.get("10").path("totals-lose").asInt());
+	}
+
+	@Test
+	void oldStatsCountAsThreeDoors() throws Exception {
+		store.incrementStats("stayed-win", "totals-win");
+		store.incrementStats("3-stayed-win", "3-totals-win");
+		store.incrementStats("5-switched-lose", "5-totals-lose");
+		assertEquals(
+				json.readTree("{\"3\":{\"stayed-win\":2,\"totals-win\":2},\"5\":{\"switched-lose\":1,\"totals-lose\":1}}"),
+				call("GET", "/stats", null, 200));
 	}
 
 	@Test

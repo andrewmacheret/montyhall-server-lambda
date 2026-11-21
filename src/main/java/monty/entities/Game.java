@@ -3,7 +3,6 @@ package monty.entities;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.random.RandomGenerator;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -31,17 +30,6 @@ public class Game {
 			}
 		}
 		return null;
-	}
-
-	@JsonIgnore
-	public Door getRandomUnselectedLosingDoor(RandomGenerator random) {
-		List<Door> candidates = new ArrayList<>();
-		for (Door door : doors) {
-			if (door.getState() == Door.State.UNSELECTED && door.getPrize() != Door.Prize.WIN) {
-				candidates.add(door);
-			}
-		}
-		return candidates.isEmpty() ? null : candidates.get(random.nextInt(candidates.size()));
 	}
 
 	public String getId() {

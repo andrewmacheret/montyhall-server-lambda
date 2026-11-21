@@ -12,14 +12,16 @@ The API is at `https://montyhall.andrewmacheret.com`.
 
 | Request | Body | Response |
 |---|---|---|
-| `GET /` | | `{"version": "2.0.0", "apis": ["/games", "/stats"]}` |
-| `POST /games` | `{"numberOfDoors": 3}` (optional, 3 to 100) | The new game |
+| `GET /` | | `{"version": "3.0.0", "apis": ["/games", "/stats"]}` |
+| `POST /games` | `{"numberOfDoors": 3}` (optional, 3 to 10) | The new game |
 | `GET /games/{id}` | | The game |
 | `PUT /games/{id}/doors/{number}` | `{"state": "SELECTED"}` to pick a door, then `{"state": "OPENED"}` to open one | `{"updated": true}` |
 | `DELETE /games/{id}` | | `{"deleted": true}` |
-| `GET /stats` | | Counts like `{"stayed-win": 3, "switched-lose": 1, "totals-win": 3, ...}` |
+| `GET /stats` | | Counts for each number of doors, like `{"3": {"stayed-win": 3, "switched-lose": 1, "totals-win": 3, ...}, "5": {...}}` |
 
 A game looks like `{"id": "...", "state": "SECOND_CHANCE", "doors": [{"number": 1, "state": "SELECTED"}, ...]}`. What's behind a door is only shown once it's opened. Finished games also have `prize` and `switched`.
+
+After you pick a door, the host opens every other door except one, and they're all goats. So with N doors, staying wins 1 game in N and switching wins the rest.
 
 Errors come back as `{"error": "..."}` with status 400 (bad request), 404 (game or door not found) or 409 (wrong game state).
 
@@ -40,6 +42,7 @@ Needs a JDK 21 or newer. Maven is downloaded by the wrapper.
 - AWS Lambda function `MontyHall` (Java 21, SnapStart) behind an API Gateway HTTP API, with the custom domain `montyhall.andrewmacheret.com`. API Gateway handles CORS.
 - API Gateway calls the function's `live` alias. Each deploy publishes a new version and moves the alias.
 - Games and stats are stored in the DynamoDB table `MontyHall`. Games expire a day after their last change.
+- Stats are counters on the `stats` item, named like `5-switched-win`. Counters with no door count in the name, like `switched-win`, are from 3-door games played before version 3.0.0, and are added to the 3-door stats.
 
 ## Deploy
 

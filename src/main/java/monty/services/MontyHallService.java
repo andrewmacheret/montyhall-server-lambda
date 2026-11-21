@@ -1,7 +1,11 @@
 package monty.services;
 
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.random.RandomGenerator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import monty.entities.Door;
 import monty.entities.Door.Prize;
@@ -10,8 +14,9 @@ import monty.store.Store;
 
 public class MontyHallService {
 	public static final int MIN_DOORS = 3;
-	public static final int MAX_DOORS = 100;
+	public static final int MAX_DOORS = 10;
 	public static final int DEFAULT_DOORS = 3;
+	private static final Pattern STAT_NAME = Pattern.compile("^([0-9]+)-(.+)$");
 
 	private final Store store;
 	private final RandomGenerator random;
@@ -57,12 +62,18 @@ public class MontyHallService {
 		Door door = getDoor(game, doorNumber);
 		door.setState(Door.State.SELECTED);
 
-		// open a random losing door that the player didn't pick
-		Door doorToOpen = game.getRandomUnselectedLosingDoor(random);
-		if (doorToOpen == null) {
-			throw new IllegalStateException("Unable to open a random unselected losing door");
+		// leave one other door closed: the car if the player missed it, or else a random goat.
+		// then open the rest, which are all goats
+		List<Door> others = game.getDoors().stream().filter(d -> d != door).toList();
+		Door keepClosed = others.stream()
+				.filter(d -> d.getPrize() == Prize.WIN)
+				.findFirst()
+				.orElseGet(() -> others.get(random.nextInt(others.size())));
+		for (Door other : others) {
+			if (other != keepClosed) {
+				other.setState(Door.State.OPENED);
+			}
 		}
-		doorToOpen.setState(Door.State.OPENED);
 		game.setState(Game.State.SECOND_CHANCE);
 
 		store.saveGame(game);
@@ -87,12 +98,22 @@ public class MontyHallService {
 
 		store.saveGame(game);
 
+		String prefix = game.getDoors().size() + "-";
 		String prize = door.getPrize().name().toLowerCase();
-		store.incrementStats((switched ? "switched" : "stayed") + "-" + prize, "totals-" + prize);
+		store.incrementStats(prefix + (switched ? "switched" : "stayed") + "-" + prize, prefix + "totals-" + prize);
 	}
 
-	public Map<String, Long> getStats() {
-		return store.getStats();
+	// stored as "5-stayed-win" and returned as {"5": {"stayed-win": ...}}
+	public Map<Integer, Map<String, Long>> getStats() {
+		Map<Integer, Map<String, Long>> stats = new TreeMap<>();
+		store.getStats().forEach((name, count) -> {
+			Matcher match = STAT_NAME.matcher(name);
+			// names without a door count are from before games could have more than 3 doors
+			int doors = match.matches() ? Integer.parseInt(match.group(1)) : DEFAULT_DOORS;
+			String stat = match.matches() ? match.group(2) : name;
+			stats.computeIfAbsent(doors, d -> new TreeMap<>()).merge(stat, count, Long::sum);
+		});
+		return stats;
 	}
 
 	private static void assertGameState(Game game, Game.State state) {
