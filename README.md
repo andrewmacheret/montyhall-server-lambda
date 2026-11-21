@@ -15,7 +15,7 @@ The API is at `https://montyhall.andrewmacheret.com`.
 | `GET /` | | `{"version": "3.0.0", "apis": ["/games", "/stats"]}` |
 | `POST /games` | `{"numberOfDoors": 3}` (optional, 3 to 10) | The new game |
 | `GET /games/{id}` | | The game |
-| `PUT /games/{id}/doors/{number}` | `{"state": "SELECTED"}` to pick a door, then `{"state": "OPENED"}` to open one | `{"updated": true}` |
+| `PUT /games/{id}/doors/{number}` | `{"state": "SELECTED"}` to pick a door, then `{"state": "OPENED"}` to open one | The updated game |
 | `DELETE /games/{id}` | | `{"deleted": true}` |
 | `GET /stats` | | Counts for each number of doors, like `{"3": {"stayed-win": 3, "switched-lose": 1, "totals-win": 3, ...}, "5": {...}}` |
 

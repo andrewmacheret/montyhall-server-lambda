@@ -58,7 +58,7 @@ public class MontyHallService {
 		return store.deleteGame(gameId);
 	}
 
-	public void selectDoor(String gameId, int doorNumber) {
+	public Game selectDoor(String gameId, int doorNumber) {
 		Game game = getGame(gameId);
 		assertGameState(game, Game.State.SELECT_A_DOOR);
 
@@ -80,9 +80,10 @@ public class MontyHallService {
 		game.setState(Game.State.SECOND_CHANCE);
 
 		store.saveGame(game);
+		return game;
 	}
 
-	public void chooseDoor(String gameId, int doorNumber) {
+	public Game chooseDoor(String gameId, int doorNumber) {
 		Game game = getGame(gameId);
 		assertGameState(game, Game.State.SECOND_CHANCE);
 
@@ -104,6 +105,7 @@ public class MontyHallService {
 		String prefix = game.getDoors().size() + "-";
 		String prize = door.getPrize().name().toLowerCase();
 		store.incrementStats(prefix + (switched ? "switched" : "stayed") + "-" + prize, prefix + "totals-" + prize);
+		return game;
 	}
 
 	// stored as "5-stayed-win" and returned as {"5": {"stayed-win": ...}}

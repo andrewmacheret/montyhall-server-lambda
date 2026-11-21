@@ -49,18 +49,20 @@ class HandlerTest {
 		String id = game.get("id").asText();
 		assertTrue(id.matches("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"));
 
-		assertEquals(json.readTree("{\"updated\":true}"), call("PUT", "/games/" + id + "/doors/1", "{\"state\": \"SELECTED\"}", 200));
+		JsonNode selected = call("PUT", "/games/" + id + "/doors/1", "{\"state\": \"SELECTED\"}", 200);
 
 		JsonNode secondChance = call("GET", "/games/" + id, null, 200);
+		assertEquals(secondChance, selected);
 		assertEquals("SECOND_CHANCE", secondChance.get("state").asText());
 		assertTrue(List.of(
 				json.readTree("[{\"number\":1,\"state\":\"SELECTED\"},{\"number\":2,\"state\":\"UNSELECTED\"},{\"number\":3,\"state\":\"OPENED\",\"prize\":\"LOSE\"}]"),
 				json.readTree("[{\"number\":1,\"state\":\"SELECTED\"},{\"number\":2,\"state\":\"OPENED\",\"prize\":\"LOSE\"},{\"number\":3,\"state\":\"UNSELECTED\"}]"))
 				.contains(secondChance.get("doors")));
 
-		call("PUT", "/games/" + id + "/doors/1", "{\"state\": \"OPENED\"}", 200);
+		JsonNode opened = call("PUT", "/games/" + id + "/doors/1", "{\"state\": \"OPENED\"}", 200);
 
 		JsonNode finished = call("GET", "/games/" + id, null, 200);
+		assertEquals(finished, opened);
 		assertEquals(Set.of("id", "state", "doors", "prize", "switched"), fieldNames(finished));
 		assertEquals("FINISHED", finished.get("state").asText());
 		assertEquals(finished.get("prize"), finished.get("doors").get(0).get("prize"));

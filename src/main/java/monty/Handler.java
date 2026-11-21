@@ -39,6 +39,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
 	public Handler() {
 		this(new MontyHallService(DynamoStore.fromEnvironment()));
+		prime();
 	}
 
 	public Handler(MontyHallService montyHallService) {
@@ -98,17 +99,36 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 		if (state == null) {
 			throw new IllegalArgumentException("state must be specified");
 		}
-		switch (Door.State.valueOf(state)) {
-		case SELECTED:
-			montyHallService.selectDoor(gameId, doorNumber);
-			break;
-		case OPENED:
-			montyHallService.chooseDoor(gameId, doorNumber);
-			break;
-		default:
-			throw new IllegalArgumentException("Unsupported state: " + state);
+		return switch (Door.State.valueOf(state)) {
+		case SELECTED -> gameJson(montyHallService.selectDoor(gameId, doorNumber));
+		case OPENED -> gameJson(montyHallService.chooseDoor(gameId, doorNumber));
+		default -> throw new IllegalArgumentException("Unsupported state: " + state);
+		};
+	}
+
+	// SnapStart snapshots the Lambda after the constructor runs, so play a throwaway game first.
+	// That loads the AWS SDK and JSON code into the snapshot, instead of on a player's first click
+	private void prime() {
+		try {
+			handleRequest(event("GET", "/stats", null), null);
+			String id = json.readTree(handleRequest(event("POST", "/games", "{}"), null).getBody()).get("id").asText();
+			handleRequest(event("PUT", "/games/" + id + "/doors/1", "{\"state\": \"SELECTED\"}"), null);
+			handleRequest(event("GET", "/games/" + id, null), null);
+			handleRequest(event("DELETE", "/games/" + id, null), null);
+		} catch (Exception e) {
+			System.err.println("Priming failed, the first requests will be slower");
+			e.printStackTrace();
 		}
-		return Map.of("updated", true);
+	}
+
+	private static APIGatewayV2HTTPEvent event(String method, String path, String body) {
+		return APIGatewayV2HTTPEvent.builder()
+				.withRawPath(path)
+				.withBody(body)
+				.withRequestContext(APIGatewayV2HTTPEvent.RequestContext.builder()
+						.withHttp(APIGatewayV2HTTPEvent.RequestContext.Http.builder().withMethod(method).withPath(path).build())
+						.build())
+				.build();
 	}
 
 	// convert a game to json, hiding what's behind unopened doors
