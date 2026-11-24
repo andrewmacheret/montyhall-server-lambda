@@ -1,6 +1,6 @@
 # montyhall-server-lambda
 
-[![License](https://img.shields.io/badge/license-MIT-lightgray.svg)](https://github.com/andrewmacheret/montyhall-server-lambda/blob/master/LICENSE.md)
+[![Test and deploy](https://github.com/andrewmacheret/montyhall-server-lambda/actions/workflows/deploy.yml/badge.svg)](https://github.com/andrewmacheret/montyhall-server-lambda/actions/workflows/deploy.yml) [![License](https://img.shields.io/badge/license-MIT-lightgray.svg)](https://github.com/andrewmacheret/montyhall-server-lambda/blob/master/LICENSE.md)
 
 A Java AWS Lambda that serves an API for a [Monty Hall](https://en.wikipedia.org/wiki/Monty_Hall_problem) game simulator and statistics engine.
 
