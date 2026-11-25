@@ -1,6 +1,6 @@
 # montyhall-server-lambda
 
-[![Test and deploy](https://github.com/andrewmacheret/montyhall-server-lambda/actions/workflows/deploy.yml/badge.svg)](https://github.com/andrewmacheret/montyhall-server-lambda/actions/workflows/deploy.yml) [![License](https://img.shields.io/badge/license-MIT-lightgray.svg)](https://github.com/andrewmacheret/montyhall-server-lambda/blob/master/LICENSE.md)
+[![Test and deploy](https://github.com/andrewmacheret/montyhall-server-lambda/actions/workflows/deploy.yml/badge.svg)](https://github.com/andrewmacheret/montyhall-server-lambda/actions/workflows/deploy.yml) [![Canary](https://github.com/andrewmacheret/montyhall-server-lambda/actions/workflows/canary.yml/badge.svg)](https://github.com/andrewmacheret/montyhall-server-lambda/actions/workflows/canary.yml) [![License](https://img.shields.io/badge/license-MIT-lightgray.svg)](https://github.com/andrewmacheret/montyhall-server-lambda/blob/master/LICENSE.md)
 
 A Java AWS Lambda that serves an API for a [Monty Hall](https://en.wikipedia.org/wiki/Monty_Hall_problem) game simulator and statistics engine.
 
@@ -18,6 +18,7 @@ The API is at `https://montyhall.andrewmacheret.com`.
 | `PUT /games/{id}/doors/{number}` | `{"state": "SELECTED"}` to pick a door, then `{"state": "OPENED"}` to open one | The updated game |
 | `DELETE /games/{id}` | | `{"deleted": true}` |
 | `GET /stats` | | Counts for each number of doors, like `{"3": {"stayed-win": 3, "switched-lose": 1, "totals-win": 3, ...}, "5": {...}}` |
+| `GET /healthcheck` | | `{"status": "ok", "checks": [...]}`, or `"fail"` with status 503 if DynamoDB can't be read |
 
 A game looks like `{"id": "...", "state": "SECOND_CHANCE", "doors": [{"number": 1, "state": "SELECTED"}, ...]}`. What's behind a door is only shown once it's opened. Finished games also have `prize` and `switched`.
 
@@ -43,6 +44,10 @@ Needs a JDK 21 or newer. Maven is downloaded by the wrapper.
 - API Gateway calls the function's `live` alias. Each deploy publishes a new version and moves the alias.
 - Games and stats are stored in the DynamoDB table `MontyHall`. Games expire a day after their last change.
 - Stats are counters on the `stats` item, named like `5-switched-win`. Counters with no door count in the name, like `switched-win`, are from 3-door games played before version 3.0.0, and are added to the 3-door stats.
+
+## Health check
+
+[`/healthcheck`](https://montyhall.andrewmacheret.com/healthcheck) reads the stats from DynamoDB. The Canary workflow (`.github/workflows/canary.yml`) checks it once a day, started by [andrewmacheret/canary](https://github.com/andrewmacheret/canary).
 
 ## Deploy
 

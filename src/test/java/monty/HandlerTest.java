@@ -162,6 +162,29 @@ class HandlerTest {
 	}
 
 	@Test
+	void healthcheck() throws Exception {
+		call("POST", "/games", "{}", 200);
+		JsonNode body = call("GET", "/healthcheck", null, 200);
+		assertEquals("ok", body.get("status").asText());
+		assertEquals("DynamoDB", body.get("checks").get(0).get("name").asText());
+		assertTrue(body.get("checks").get(0).get("ok").asBoolean());
+		assertEquals(json.readTree("{}"), call("GET", "/stats", null, 200));
+	}
+
+	@Test
+	void healthcheckSaysWhenDynamoIsBroken() throws Exception {
+		handler = new Handler(new MontyHallService(new InMemoryStore() {
+			@Override
+			public java.util.Map<String, Long> getStats() {
+				throw new IllegalStateException("DynamoDB is down");
+			}
+		}));
+		JsonNode body = call("GET", "/healthcheck", null, 503);
+		assertEquals("fail", body.get("status").asText());
+		assertEquals("DynamoDB is down", body.get("checks").get(0).get("detail").asText());
+	}
+
+	@Test
 	void corsPreflight() throws Exception {
 		call("OPTIONS", "/games", null, 204);
 		call("OPTIONS", "/games/anything/doors/1", null, 204);

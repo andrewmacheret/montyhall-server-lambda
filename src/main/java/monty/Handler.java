@@ -54,6 +54,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 		if (method.equals("OPTIONS")) {
 			return APIGatewayV2HTTPResponse.builder().withStatusCode(204).build();
 		}
+		if (path.equals("/healthcheck") && method.equals("GET")) {
+			return healthcheck();
+		}
 		try {
 			return response(200, route(method, path, readBody(event)));
 		} catch (NotFoundException e) {
@@ -93,6 +96,24 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 			return montyHallService.getStats();
 		}
 		throw new NotFoundException("Not found: " + method + " " + path);
+	}
+
+	// GET /healthcheck, for the daily canary (github.com/andrewmacheret/canary).
+	// It only reads the stats, so it doesn't count as a game
+	private APIGatewayV2HTTPResponse healthcheck() {
+		Map<String, Object> check = new LinkedHashMap<>();
+		check.put("name", "DynamoDB");
+		boolean ok;
+		try {
+			ok = true;
+			check.put("detail", "read stats for " + montyHallService.getStats().size() + " door counts");
+		} catch (Exception e) {
+			ok = false;
+			check.put("detail", String.valueOf(e.getMessage()));
+		}
+		check.put("ok", ok);
+		Map<String, Object> body = Map.of("status", ok ? "ok" : "fail", "checks", List.of(check));
+		return response(ok ? 200 : 503, body, Map.of("Cache-Control", "no-store"));
 	}
 
 	private Object changeDoor(String gameId, int doorNumber, String state) {
@@ -174,10 +195,16 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 	}
 
 	private APIGatewayV2HTTPResponse response(int status, Object body) {
+		return response(status, body, Map.of());
+	}
+
+	private APIGatewayV2HTTPResponse response(int status, Object body, Map<String, String> extraHeaders) {
+		Map<String, String> headers = new LinkedHashMap<>(extraHeaders);
+		headers.put("Content-Type", "application/json");
 		try {
 			return APIGatewayV2HTTPResponse.builder()
 					.withStatusCode(status)
-					.withHeaders(Map.of("Content-Type", "application/json"))
+					.withHeaders(headers)
 					.withBody(json.writeValueAsString(body))
 					.build();
 		} catch (IOException e) {
