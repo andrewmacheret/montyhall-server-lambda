@@ -18,7 +18,6 @@ The API is at `https://montyhall.andrewmacheret.com`.
 | `PUT /games/{id}/doors/{number}` | `{"state": "SELECTED"}` to pick a door, then `{"state": "OPENED"}` to open one | The updated game |
 | `DELETE /games/{id}` | | `{"deleted": true}` |
 | `GET /stats` | | Counts for each number of doors, like `{"3": {"stayed-win": 3, "switched-lose": 1, "totals-win": 3, ...}, "5": {...}}` |
-| `GET /healthcheck` | | `{"status": "ok", "checks": [...]}`, or `"fail"` with status 503 if DynamoDB can't be read |
 
 A game looks like `{"id": "...", "state": "SECOND_CHANCE", "doors": [{"number": 1, "state": "SELECTED"}, ...]}`. What's behind a door is only shown once it's opened. Finished games also have `prize` and `switched`.
 
@@ -47,7 +46,7 @@ Needs a JDK 21 or newer. Maven is downloaded by the wrapper.
 
 ## Health check
 
-[`/healthcheck`](https://montyhall.andrewmacheret.com/healthcheck) reads the stats from DynamoDB. The Canary workflow (`.github/workflows/canary.yml`) checks it once a day, started by [andrewmacheret/canary](https://github.com/andrewmacheret/canary).
+Once a day, the Canary workflow (`.github/workflows/canary.yml`) checks that the API is up and can read its stats from DynamoDB. It's started by [andrewmacheret/canary](https://github.com/andrewmacheret/canary).
 
 ## Deploy
 
