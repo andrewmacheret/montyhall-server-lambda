@@ -201,6 +201,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 	private APIGatewayV2HTTPResponse response(int status, Object body, Map<String, String> extraHeaders) {
 		Map<String, String> headers = new LinkedHashMap<>(extraHeaders);
 		headers.put("Content-Type", "application/json");
+		// Keeps Google from listing the API in search results
+		headers.put("X-Robots-Tag", "noindex");
 		try {
 			return APIGatewayV2HTTPResponse.builder()
 					.withStatusCode(status)

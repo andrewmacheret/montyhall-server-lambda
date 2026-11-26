@@ -217,6 +217,10 @@ class HandlerTest {
 				.build();
 		APIGatewayV2HTTPResponse response = handler.handleRequest(event, null);
 		assertEquals(expectedStatus, response.getStatusCode(), response.getBody());
+		// CORS preflights (204) have no headers, API Gateway adds them
+		if (response.getStatusCode() != 204) {
+			assertEquals("noindex", response.getHeaders().get("X-Robots-Tag"));
+		}
 		return response.getBody() == null ? null : json.readTree(response.getBody());
 	}
 
