@@ -63,6 +63,7 @@ jobs:
           curl -sSf "$API_URL/" | jq -e '.version'
           id=$(curl -sSf -X POST -H 'Content-Type: application/json' -d '{}' "$API_URL/games" | jq -er '.id')
           curl -sSf "$API_URL/games/$id" | jq -e '.state == "SELECT_A_DOOR"'
+          curl -sSf -X POST -d '{"state": "SELECTED"}' "$API_URL/games/$id/doors/1" | jq -e '.state == "SECOND_CHANCE"'
           curl -sSf -X DELETE "$API_URL/games/$id" | jq -e '.deleted'
           curl -sSf "$API_URL/stats"
           curl -sSf -o /dev/null -X OPTIONS "$API_URL/games" \

@@ -93,6 +93,13 @@ class HandlerTest {
 	}
 
 	@Test
+	void postWorksLikePut() throws Exception {
+		String id = call("POST", "/games", "{}", 200).get("id").asText();
+		assertEquals("SECOND_CHANCE", call("POST", "/games/" + id + "/doors/1", "{\"state\": \"SELECTED\"}", 200).get("state").asText());
+		assertEquals("FINISHED", call("POST", "/games/" + id + "/doors/1", "{\"state\": \"OPENED\"}", 200).get("state").asText());
+	}
+
+	@Test
 	void defaultsToThreeDoors() throws Exception {
 		assertEquals(3, call("POST", "/games", null, 200).get("doors").size());
 	}

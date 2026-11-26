@@ -16,12 +16,15 @@ The API is at `https://montyhall.andrewmacheret.com`.
 | `POST /games` | `{"numberOfDoors": 3}` (optional, 3 to 10) | The new game |
 | `GET /games/{id}` | | The game |
 | `PUT /games/{id}/doors/{number}` | `{"state": "SELECTED"}` to pick a door, then `{"state": "OPENED"}` to open one | The updated game |
+| `POST /games/{id}/doors/{number}` | Same as the `PUT` | The updated game |
 | `DELETE /games/{id}` | | `{"deleted": true}` |
 | `GET /stats` | | Counts for each number of doors, like `{"3": {"stayed-win": 3, "switched-lose": 1, "totals-win": 3, ...}, "5": {...}}` |
 
 A game looks like `{"id": "...", "state": "SECOND_CHANCE", "doors": [{"number": 1, "state": "SELECTED"}, ...]}`. What's behind a door is only shown once it's opened. Finished games also have `prize` and `switched`.
 
 After you pick a door, the host opens every other door except one, and they're all goats. So with N doors, staying wins 1 game in N and switching wins the rest.
+
+The client sends its requests with no `Content-Type` header and uses `POST` for doors. Those are "simple" CORS requests, so the browser doesn't wait on a preflight before each click. The body is read as JSON whatever its content type.
 
 Errors come back as `{"error": "..."}` with status 400 (bad request), 404 (game or door not found) or 409 (wrong game state).
 

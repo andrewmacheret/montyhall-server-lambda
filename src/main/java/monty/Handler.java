@@ -89,7 +89,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 		if (gameMatch.matches() && method.equals("DELETE")) {
 			return Map.of("deleted", montyHallService.removeGame(gameMatch.group(1)));
 		}
-		if (doorMatch.matches() && method.equals("PUT")) {
+		// POST does the same as PUT. Browsers can send a POST without waiting on a CORS preflight first
+		if (doorMatch.matches() && (method.equals("PUT") || method.equals("POST"))) {
 			return changeDoor(doorMatch.group(1), Integer.parseInt(doorMatch.group(2)), body.path("state").asText(null));
 		}
 		if (path.equals("/stats") && method.equals("GET")) {
